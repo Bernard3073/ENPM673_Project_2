@@ -109,6 +109,7 @@ def apply_sobel_x(gray):
     # Keep only derivative values that are in the margin of interest
     sx_binary[(scaled_sobel >= 100) & (
                 scaled_sobel <= 255)] = 1 * 255  # Remember to multiply by 255, if you want to show the img
+    
     # # Detect pixels that are white in the grayscale image
     # white_binary = np.zeros_like(gray)
     # white_binary[(gray > 200) & (gray <= 255)] = 1*255
@@ -235,9 +236,9 @@ def main():
     # fps = 25
     # convert_frames_to_video(file_dir, 'Lane Detection.avi', fps)
 
-    # source points to be warped
+    # source points to be warped (points are determined through try and error)
     # pts_src = np.array([[353,402], [490,323], [742,323],[805,402]])
-    pts_src = np.array([[175, 500], [540, 260], [720, 260], [880, 500]])
+    pts_src = np.array([[250, 500], [540, 300], [720, 300], [850, 500]])
     # destination points to be warped towards
     pts_dst = np.array([[410, 511], [410, 0], [780, 0], [780, 511]])
 
@@ -248,19 +249,32 @@ def main():
         filename = file_dir + data[i]
         # reading each files
         img = cv2.imread(filename)
-        height, width, _q = img.shape
+        height, width, _ = img.shape
         # cv2.polylines(img, [pts_src], True, Red)
 
+        blur = cv2.GaussianBlur(img, (7, 7), 0)
+        
+        # Gamma correction to adjust lighting condition
+        hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
+        clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(16, 16))
+        clahe_img = clahe.apply(hsv[:, :, 2])
+
+        gamma_img = adjust_gamma(clahe_img, 1.0)
+        hsv[:, :, 2] = gamma_img
+
+        processed_img = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        
         h, _ = cv2.findHomography(pts_src, pts_dst)
         # warp = cv2.warpPerspective(img, h, (width, height))
-        undistort_img = undistort_image(img)
+        undistort_img = undistort_image(processed_img)
         warp = cv2.warpPerspective(undistort_img, h, (width, height))
         # Edge Detection
         # warp = cv2.cvtColor(warp, cv2.COLOR_BGR2GRAY)
         gray = cv2.cvtColor(warp, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
         # edge = cv2.Canny(blur, 200, 300)
-
+        
+        
         sx_binary = apply_sobel_x(blur)
         left_x, left_y, right_x, right_y, turn = hist_lane_pixel(sx_binary)
         lane_detect_img = poly_fit(sx_binary, left_x, left_y, right_x, right_y)
@@ -272,17 +286,26 @@ def main():
         final_img = cv2.addWeighted(np.uint8(img), 1, np.uint8(lane_detect_img), 0.5, 0)
 
         cv2.putText(final_img, turn, (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.5, Red, 2, cv2.LINE_AA)
-        # cv2.imshow('original', original)
+        
+        # cv2.imshow('original', img)
         cv2.imshow('s', sx_binary)
         cv2.imshow('lane_detect', lane_detect_img)
-        cv2.imshow('final', final_img)
+        
         # cv2.imshow('warp', warp)
         # cv2.imshow('undistort', undistort_img)
         # cv2.imshow('edge', edge)
         # cv2.setMouseCallback('f', click_event)
-
+        # cv2.imshow('final', final_img)
+        directory_name = './data_1_output_png/' + data[i]
+        cv2.imwrite(directory_name, final_img)
         cv2.waitKey(0)
     cv2.destroyAllWindows()
+    
+    # file_dir = "./data_1_output_png/"
+    # data = [i for i in os.listdir(file_dir) if i.endswith('.png')]
+    # fps = 10
+    # convert_frames_to_video(file_dir, 'Lane_Detection_data_1.avi', fps)
+    
     # video = cv2.VideoWriter('Lane Detection.avi', 0, 1, ())
     # for i in data:
     #     img = cv2.imread(i)
