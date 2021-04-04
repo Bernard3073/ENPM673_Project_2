@@ -7,7 +7,6 @@ Created on Sat Apr  3 01:05:47 2021
 """
 
 import cv2
-import os
 import numpy as np
 
 Blue = (255, 0, 0)
@@ -23,17 +22,6 @@ def undistort_image(img):
     dist_coeff = np.array([[-2.42565104e-01, -4.77893070e-02, -1.31388084e-03, -8.79107779e-05, 2.20573263e-02]])
     img = cv2.undistort(img, K, dist_coeff, None, K)
     return img
-
-
-def adjust_gamma(image, gamma=1.0):
-    # Reference: https://www.pyimagesearch.com/2015/10/05/opencv-gamma-correction/
-    # build a lookup table mapping the pixel values [0, 255] to
-    # their adjusted gamma values
-    invGamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** invGamma) * 255
-                      for i in np.arange(0, 256)]).astype("uint8")
-    # apply gamma correction using the lookup table
-    return cv2.LUT(image, table)
 
 
 def extract_lane(img):
@@ -136,8 +124,8 @@ def hist_lane_pixel(warp):
     right_x = nonzero_x[right_lane]
     right_y = nonzero_y[right_lane]
 
-    img[nonzero_y[left_lane], nonzero_x[left_lane]] = [255, 0, 0]  # Blue
-    img[nonzero_y[right_lane], nonzero_x[right_lane]] = [0, 0, 255]  # Red
+    img[nonzero_y[left_lane], nonzero_x[left_lane]] = Blue
+    img[nonzero_y[right_lane], nonzero_x[right_lane]] = Red
     # cv2.imshow('img', img)
     return img, left_x, left_y, right_x, right_y, turn
 
@@ -186,6 +174,17 @@ def turn_prediction(right_lane_pts, left_lane_pts, image_center):
         return "Turning Right"
 
 
+def adjust_gamma(image, gamma=1.0):
+    # Reference: https://www.pyimagesearch.com/2015/10/05/opencv-gamma-correction/
+    # build a lookup table mapping the pixel values [0, 255] to
+    # their adjusted gamma values
+    inv_gamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** inv_gamma) * 255
+                      for i in np.arange(0, 256)]).astype("uint8")
+    # apply gamma correction using the lookup table
+    return cv2.LUT(image, table)
+
+
 def main():
     file_dir = "./data_2/challenge_video.mp4"
     cap = cv2.VideoCapture(file_dir)
@@ -208,24 +207,38 @@ def main():
 
             # cv2.polylines(img, [pts_src], True, Red)
 
-            img = undistort_image(frame)
+            undistort_img = undistort_image(frame)
 
-            img = extract_lane(img)
+            extract_lane_img = extract_lane(undistort_img)
 
             h, _ = cv2.findHomography(pts_src, pts_dst)
 
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(extract_lane_img, cv2.COLOR_BGR2GRAY)
             # Filter noise
             img_blur = cv2.bilateralFilter(gray, 9, 120, 100)
 
             # Apply edge detection
             img_edge = cv2.Canny(img_blur, 100, 200)
+
             warp = cv2.warpPerspective(img_edge, h, (width, height))
 
             img, left_x, left_y, right_x, right_y, turn = hist_lane_pixel(warp)
-            # If hist_lane_pixel() cannot find any lane, do not use poly_fit()
+            # If hist_lane_pixel() cannot find any lane, perform gamma correction to find lane
             if np.sum(left_x) == 0 or np.sum(left_y) == 0 or np.sum(right_x) == 0 or np.sum(right_y) == 0:
-                pass
+
+                hsv_img = cv2.cvtColor(undistort_img, cv2.COLOR_BGR2HSV)
+                clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(16, 16))
+                clahe_img = clahe.apply(hsv_img[:, :, 2])
+
+                gamma_img = adjust_gamma(clahe_img, 1.0)
+                hsv_img[:, :, 2] = gamma_img
+
+                processed_img = cv2.cvtColor(hsv_img, cv2.COLOR_HSV2BGR)
+                warp = cv2.warpPerspective(processed_img, h, (width, height))
+                gray = cv2.cvtColor(warp, cv2.COLOR_BGR2GRAY)
+                blur = cv2.GaussianBlur(gray, (5, 5), 0)
+                img, left_x, left_y, right_x, right_y, turn = hist_lane_pixel(blur)
+                lane_detect_img = poly_fit(img, left_x, left_y, right_x, right_y)
             else:
                 lane_detect_img = poly_fit(img, left_x, left_y, right_x, right_y)
 
