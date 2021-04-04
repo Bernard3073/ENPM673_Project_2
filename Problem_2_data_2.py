@@ -40,14 +40,18 @@ def extract_lane(img):
     hsl_img = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
 
     # Search for the yellow lane at left
-    lower_mask_yellow = np.array([20, 120, 80], dtype='uint8')
+    # lower_mask_yellow = np.array([20, 120, 80], dtype='uint8')
+    # upper_mask_yellow = np.array([45, 200, 255], dtype='uint8')
+    lower_mask_yellow = np.array([20, 90, 90], dtype='uint8')
     upper_mask_yellow = np.array([45, 200, 255], dtype='uint8')
     mask_yellow = cv2.inRange(hsl_img, lower_mask_yellow, upper_mask_yellow)
 
     yellow_lane = cv2.bitwise_and(hsl_img, hsl_img, mask=mask_yellow).astype(np.uint8)
 
     # Search for the white lane at right
-    lower_mask_white = np.array([0, 200, 0], dtype='uint8')
+    # lower_mask_white = np.array([0, 200, 0], dtype='uint8')
+    # upper_mask_white = np.array([255, 255, 255], dtype='uint8')
+    lower_mask_white = np.array([0, 190, 0], dtype='uint8')
     upper_mask_white = np.array([255, 255, 255], dtype='uint8')
     mask_white = cv2.inRange(hsl_img, lower_mask_white, upper_mask_white)
 
@@ -175,7 +179,7 @@ def turn_prediction(right_lane_pts, left_lane_pts, image_center):
     if center_lane - image_center < 0:
         return "Turning Left"
 
-    elif center_lane - image_center < 8:
+    elif abs(center_lane - image_center) < 10:
         return "Straight"
 
     else:
@@ -190,7 +194,7 @@ def main():
     pts_src = np.array([[330, 700], [600, 500], [720, 500], [1040, 700]])
     # destination points to be warped towards
     # pts_dst = np.array([[410, 511], [410, 0], [780, 0], [780, 511]])
-    pts_dst = np.array([[410, 680], [410, 0], [780, 0], [780, 680]])
+    pts_dst = np.array([[400, 680], [400, 0], [880, 0], [880, 680]])
 
     if not cap.isOpened():
         print("Error")
@@ -205,18 +209,7 @@ def main():
             # cv2.polylines(img, [pts_src], True, Red)
 
             img = undistort_image(frame)
-            # blur = cv2.GaussianBlur(undistort_img, (7, 7), 0)
-            #
-            # Gamma correction to adjust lighting condition
-            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-            clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(16, 16))
-            clahe_img = clahe.apply(hsv[:, :, 2])
 
-            gamma_img = adjust_gamma(clahe_img, 1.0)
-            hsv[:, :, 2] = gamma_img
-
-            img = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-            # cv2.imshow('g', img)
             img = extract_lane(img)
 
             h, _ = cv2.findHomography(pts_src, pts_dst)
@@ -229,9 +222,12 @@ def main():
             img_edge = cv2.Canny(img_blur, 100, 200)
             warp = cv2.warpPerspective(img_edge, h, (width, height))
 
-            cv2.imshow('t', warp)
             img, left_x, left_y, right_x, right_y, turn = hist_lane_pixel(warp)
-            lane_detect_img = poly_fit(img, left_x, left_y, right_x, right_y)
+            # If hist_lane_pixel() cannot find any lane, do not use poly_fit()
+            if np.sum(left_x) == 0 or np.sum(left_y) == 0 or np.sum(right_x) == 0 or np.sum(right_y) == 0:
+                pass
+            else:
+                lane_detect_img = poly_fit(img, left_x, left_y, right_x, right_y)
 
             # Unwarp the image
             h_inv = np.linalg.inv(h)
