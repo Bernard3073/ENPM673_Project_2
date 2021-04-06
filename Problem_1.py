@@ -31,7 +31,6 @@ def main():
         ret, frame = cap.read()
         if ret:
             height, width, _ = frame.shape
-            print(width, height)
             blur = cv2.GaussianBlur(frame, (7, 7), 0)
             hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
 
