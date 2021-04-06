@@ -140,9 +140,6 @@ def poly_fit(img, left_x, left_y, right_x, right_y):
     left_fit_x = left_fit[0] * plot_y ** 2 + left_fit[1] * plot_y + left_fit[2]
     right_fit_x = right_fit[0] * plot_y ** 2 + right_fit[1] * plot_y + right_fit[2]
 
-    # Plot the result in sx_binary image
-    # img = np.dstack((img, img, img)) * 255
-
     # Extract points from line fitting
     left_pts = np.array([(np.vstack([left_fit_x, plot_y])).T])
     # flip the array upside down in order to cv2.fillPoly()
@@ -161,14 +158,14 @@ def poly_fit(img, left_x, left_y, right_x, right_y):
     return img
 
 
-def turn_prediction(right_lane_pts, left_lane_pts, image_center):
+def turn_prediction(left_lane_pts, right_lane_pts, image_center):
     center_lane = left_lane_pts + (right_lane_pts - left_lane_pts) / 2
 
-    if center_lane - image_center < 0:
-        return "Turning Left"
-
-    elif abs(center_lane - image_center) < 10:
+    if abs(center_lane - image_center) < 10:
         return "Straight"
+
+    elif center_lane - image_center < 0:
+        return "Turning Left"
 
     else:
         return "Turning Right"
@@ -189,24 +186,20 @@ def main():
     file_dir = "./data_2/challenge_video.mp4"
     cap = cv2.VideoCapture(file_dir)
     # source points to be warped (points are determined through try and error)
-    # pts_src = np.array([[175, 500], [540, 260], [720, 260], [880, 500]])
     pts_src = np.array([[330, 700], [600, 500], [720, 500], [1040, 700]])
     # destination points to be warped towards
-    # pts_dst = np.array([[410, 511], [410, 0], [780, 0], [780, 511]])
     pts_dst = np.array([[400, 680], [400, 0], [880, 0], [880, 680]])
-
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter('Lane_Detection_data_2.avi',fourcc, 20.0, (1280, 720))
     if not cap.isOpened():
         print("Error")
     while cap.isOpened():
 
         ret, frame = cap.read()
-
+        
+        
         if ret:
-
             height, width, _ = frame.shape
-
-            # cv2.polylines(img, [pts_src], True, Red)
-
             undistort_img = undistort_image(frame)
 
             extract_lane_img = extract_lane(undistort_img)
@@ -250,21 +243,15 @@ def main():
 
             cv2.putText(final_img, turn, (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.5, Red, 2, cv2.LINE_AA)
 
-            # # cv2.imshow('original', frame)
-            # cv2.imshow('lane_detect', lane_detect_img)
-            #
-            # cv2.imshow('warp', warp)
-            # # cv2.imshow('undistort', undistort_img)
-            # # cv2.imshow('edge', edge)
-            # # cv2.setMouseCallback('f', click_event)
             cv2.imshow('final', final_img)
-
+            out.write(final_img)
             if cv2.waitKey(30) & 0xFF == ord("q"):
                 break
         else:
             break
 
     cap.release()
+    out.release()
     cv2.destroyAllWindows()
 
 

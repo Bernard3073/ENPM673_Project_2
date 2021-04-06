@@ -23,20 +23,16 @@ def adjust_gamma(image, gamma=1.0):
 def main():
     cap = cv2.VideoCapture('./Night Drive - 2689.mp4')
     # a = np.zeros((256,),dtype=np.float16)
-
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter('Night_Drive_improved.avi', fourcc, 20.0, (1920, 1080))
     if not cap.isOpened():
         print("Error")
     while cap.isOpened():
         ret, frame = cap.read()
-
         if ret:
-            # Resize the video frame
-            scale_percent = 60  # percent of original size
-            width = int(frame.shape[1] * scale_percent / 100)
-            height = int(frame.shape[0] * scale_percent / 100)
-            original = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
-
-            blur = cv2.GaussianBlur(original, (7, 7), 0)
+            height, width, _ = frame.shape
+            print(width, height)
+            blur = cv2.GaussianBlur(frame, (7, 7), 0)
             hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
 
             clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(16, 16))
@@ -49,12 +45,14 @@ def main():
 
             # showing the image
             cv2.imshow('improved_image', processed_img)
+            out.write(processed_img)
             if cv2.waitKey(30) & 0xFF == ord("q"):
                 break
         else:
             break
 
     cap.release()
+    out.release()
     cv2.destroyAllWindows()
 
 

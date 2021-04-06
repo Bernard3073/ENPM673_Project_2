@@ -9,7 +9,6 @@ Created on Sun Mar 28 13:37:59 2021
 import cv2
 import os
 import numpy as np
-from os.path import isfile, join
 
 # #Camera Matrix
 # K: 9.037596e+02 0.000000e+00 6.957519e+02 0.000000e+00 9.019653e+02 2.242509e+02 0.000000e+00 0.000000e+00 1.000000e+00
@@ -40,40 +39,6 @@ def convert_frames_to_video(pathIn, pathOut, fps):
         # writing to a image array
         out.write(frame_array[i])
     out.release()
-
-
-def click_event(event, x, y, flags, params):
-    # checking for left mouse clicks
-    if event == cv2.EVENT_LBUTTONDOWN:
-        # displaying the coordinates
-        # on the Shell
-        print(x, ' ', y)
-
-        # displaying the coordinates
-        # on the image window
-        # font = cv2.FONT_HERSHEY_SIMPLEX
-        # cv2.putText(img, str(x) + ',' +
-        #             str(y), (x,y), font,
-        #             1, (255, 0, 0), 2)
-        # cv2.imshow('f', img)
-
-    # checking for right mouse clicks
-    if event == cv2.EVENT_RBUTTONDOWN:
-        # displaying the coordinates
-        # on the Shell
-        print(x, ' ', y)
-
-        # displaying the coordinates
-        # on the image window
-        # font = cv2.FONT_HERSHEY_SIMPLEX
-        # b = img[y, x, 0]
-        # g = img[y, x, 1]
-        # r = img[y, x, 2]
-        # cv2.putText(img, str(b) + ',' +
-        #             str(g) + ',' + str(r),
-        #             (x,y), font, 1,
-        #             (255, 255, 0), 2)
-        # cv2.imshow('f', img)
 
 
 def undistort_image(img):
@@ -109,13 +74,6 @@ def apply_sobel_x(gray):
     # Keep only derivative values that are in the margin of interest
     sx_binary[(scaled_sobel >= 100) & (
                 scaled_sobel <= 255)] = 1 * 255  # Remember to multiply by 255, if you want to show the img
-    
-    # # Detect pixels that are white in the grayscale image
-    # white_binary = np.zeros_like(gray)
-    # white_binary[(gray > 200) & (gray <= 255)] = 1*255
-
-    # binary = cv2.bitwise_or(sx_binary, white_binary)
-    # cv2.imshow("s_x", sx_binary)
 
     return sx_binary
 
@@ -188,7 +146,10 @@ def hist_lane_pixel(binary):
     left_y = nonzero_y[left_lane]
     right_x = nonzero_x[right_lane]
     right_y = nonzero_y[right_lane]
-
+    # img = np.dstack((binary, binary, binary))*255
+    # img[nonzero_y[left_lane], nonzero_x[left_lane]] = Blue
+    # img[nonzero_y[right_lane], nonzero_x[right_lane]] = Red
+    # cv2.imshow('img', img)
     return left_x, left_y, right_x, right_y, turn
 
 
@@ -218,26 +179,23 @@ def poly_fit(sx_binary, left_x, left_y, right_x, right_y):
     return img
 
 
-def turn_prediction(left_x, right_x, center_img):
-    mean_distance_x = left_x + (right_x - left_x) / 2
+def turn_prediction(left_lane_pts, right_lane_pts, image_center):
+    center_lane = left_lane_pts + (right_lane_pts - left_lane_pts) / 2
 
-    center_offset = center_img - mean_distance_x
-    if (center_offset > 0):
-        return ("Right")
-    elif (center_offset < 0):
-        return ("left")
-    elif ((center_offset > 8)):
-        return ("Straight")
+    if abs(center_lane - image_center) < 40:
+        return "Straight"
+    
+    elif center_lane - image_center < 0:
+        return "Turning Left"
 
+    else:
+        return "Turning Right"
 
 def main():
     file_dir = "./data_1/"
     data = [i for i in os.listdir(file_dir) if i.endswith('.png')]
-    # fps = 25
-    # convert_frames_to_video(file_dir, 'Lane Detection.avi', fps)
 
     # source points to be warped (points are determined through try and error)
-    # pts_src = np.array([[353,402], [490,323], [742,323],[805,402]])
     pts_src = np.array([[250, 500], [540, 300], [720, 300], [850, 500]])
     # destination points to be warped towards
     pts_dst = np.array([[410, 511], [410, 0], [780, 0], [780, 511]])
@@ -245,71 +203,62 @@ def main():
     # for sorting the file names properly
     data.sort(key=lambda x: int(x[5:-4]))
 
+    h, _ = cv2.findHomography(pts_src, pts_dst)
+    
     for i in range(len(data)):
         filename = file_dir + data[i]
         # reading each files
         img = cv2.imread(filename)
         height, width, _ = img.shape
-        # cv2.polylines(img, [pts_src], True, Red)
-
-        blur = cv2.GaussianBlur(img, (7, 7), 0)
         
-        # Gamma correction to adjust lighting condition
-        hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
-        clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(16, 16))
-        clahe_img = clahe.apply(hsv[:, :, 2])
-
-        gamma_img = adjust_gamma(clahe_img, 1.0)
-        hsv[:, :, 2] = gamma_img
-
-        processed_img = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-        
-        h, _ = cv2.findHomography(pts_src, pts_dst)
-        # warp = cv2.warpPerspective(img, h, (width, height))
-        undistort_img = undistort_image(processed_img)
+        undistort_img = undistort_image(img)
         warp = cv2.warpPerspective(undistort_img, h, (width, height))
-        # Edge Detection
-        # warp = cv2.cvtColor(warp, cv2.COLOR_BGR2GRAY)
         gray = cv2.cvtColor(warp, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
-        # edge = cv2.Canny(blur, 200, 300)
-        
-        
+
         sx_binary = apply_sobel_x(blur)
         left_x, left_y, right_x, right_y, turn = hist_lane_pixel(sx_binary)
-        lane_detect_img = poly_fit(sx_binary, left_x, left_y, right_x, right_y)
+        # lane_detect_img = poly_fit(sx_binary, left_x, left_y, right_x, right_y)
+        
+        if np.sum(left_x) == 0 or np.sum(left_y) == 0 or np.sum(right_x) == 0 or np.sum(right_y) == 0:
 
+            hsv_img = cv2.cvtColor(warp, cv2.COLOR_BGR2HSV)
+            clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(16, 16))
+            clahe_img = clahe.apply(hsv_img[:, :, 2])
+
+            gamma_img = adjust_gamma(clahe_img, 1.0)
+            hsv_img[:, :, 2] = gamma_img
+
+            processed_img = cv2.cvtColor(hsv_img, cv2.COLOR_HSV2BGR)
+            
+            gray = cv2.cvtColor(processed_img, cv2.COLOR_BGR2GRAY)
+            blur = cv2.GaussianBlur(gray, (5, 5), 0)
+            sx_binary = apply_sobel_x(blur)
+            img, left_x, left_y, right_x, right_y, turn = hist_lane_pixel(sx_binary)
+            lane_detect_img = poly_fit(img, left_x, left_y, right_x, right_y)
+
+        else:
+            lane_detect_img = poly_fit(sx_binary, left_x, left_y, right_x, right_y)
+        
         # Unwarp the image
         h_inv = np.linalg.inv(h)
         lane_detect_img = cv2.warpPerspective(lane_detect_img, h_inv, (width, height))
 
         final_img = cv2.addWeighted(np.uint8(img), 1, np.uint8(lane_detect_img), 0.5, 0)
-
         cv2.putText(final_img, turn, (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.5, Red, 2, cv2.LINE_AA)
         
-        # cv2.imshow('original', img)
-        cv2.imshow('s', sx_binary)
-        cv2.imshow('lane_detect', lane_detect_img)
-        
-        # cv2.imshow('warp', warp)
-        # cv2.imshow('undistort', undistort_img)
-        # cv2.imshow('edge', edge)
-        # cv2.setMouseCallback('f', click_event)
-        # cv2.imshow('final', final_img)
+        cv2.imshow('final', final_img)
+        print("Press q or esc to continue to the next frame !!!")
         directory_name = './data_1_output_png/' + data[i]
         cv2.imwrite(directory_name, final_img)
         cv2.waitKey(0)
     cv2.destroyAllWindows()
     
-    # file_dir = "./data_1_output_png/"
-    # data = [i for i in os.listdir(file_dir) if i.endswith('.png')]
-    # fps = 10
-    # convert_frames_to_video(file_dir, 'Lane_Detection_data_1.avi', fps)
+    file_dir = "./data_1_output_png/"
+    data = [i for i in os.listdir(file_dir) if i.endswith('.png')]
+    fps = 10
+    convert_frames_to_video(file_dir, 'Lane_Detection_data_1.avi', fps)
     
-    # video = cv2.VideoWriter('Lane Detection.avi', 0, 1, ())
-    # for i in data:
-    #     img = cv2.imread(i)
-
 
 if __name__ == '__main__':
     main()
