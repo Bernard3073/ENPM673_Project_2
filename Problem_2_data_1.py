@@ -247,8 +247,8 @@ def main():
         final_img = cv2.addWeighted(np.uint8(img), 1, np.uint8(lane_detect_img), 0.5, 0)
         cv2.putText(final_img, turn, (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.5, Red, 2, cv2.LINE_AA)
         
-        cv2.imshow('final', final_img)
-        print("Press q or esc to continue to the next frame !!!")
+        # cv2.imshow('final', final_img)
+        # print("Press q or esc to continue to the next frame !!!")
         directory_name = './data_1_output_png/' + data[i]
         cv2.imwrite(directory_name, final_img)
         cv2.waitKey(0)
