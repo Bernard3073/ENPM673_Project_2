@@ -4,7 +4,7 @@ Before running the following code, make sure you have the Night Drive-2689.mp4, 
 ```
 python3 Problem_1.py
 ```
-## Problem 1
+## Problem 2
 For data 1, before running the code, make sure you have the folder data_1_out_png in your current directory.  
 The output image will store in the folder and generate a video based on the image from the folder.  
 It will take a while generating the output video.
