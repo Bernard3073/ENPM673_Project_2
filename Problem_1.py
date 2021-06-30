@@ -23,8 +23,8 @@ def adjust_gamma(image, gamma=1.0):
 def main():
     cap = cv2.VideoCapture('./Night Drive - 2689.mp4')
     # a = np.zeros((256,),dtype=np.float16)
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter('Night_Drive_improved.avi', fourcc, 20.0, (1920, 1080))
+    # fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    # out = cv2.VideoWriter('Night_Drive_improved.avi', fourcc, 20.0, (1920, 1080))
     if not cap.isOpened():
         print("Error")
     while cap.isOpened():
@@ -36,22 +36,38 @@ def main():
 
             clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(16, 16))
             clahe_img = clahe.apply(hsv[:, :, 2])
-
+            
             gamma_img = adjust_gamma(clahe_img, 1.0)
             hsv[:, :, 2] = gamma_img
 
             processed_img = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
+            # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # hist,bins = np.histogram(hsv[:, :, 0].flatten(),256,[0,256])
+            # cdf = hist.cumsum()
+            # cdf_normalized = cdf * float(hist.max()) / cdf.max()
+            
+            # cdf_m = np.ma.masked_equal(cdf,0)
+            # cdf_m = (cdf_m - cdf_m.min())*255/(cdf_m.max()-cdf_m.min())
+            # cdf = np.ma.filled(cdf_m,0).astype('uint8')
+            # processed_img = cdf[hsv]
+            
+            # # equalize the histogram of the Y channel
+            # hsv[:,:,0] = cv2.equalizeHist(hsv[:,:,0])
+
+            # # convert the YUV image back to RGB format
+            # processed_img = cv2.cvtColor(hsv, cv2.COLOR_YUV2BGR)
+
             # showing the image
             cv2.imshow('improved_image', processed_img)
-            out.write(processed_img)
+            # out.write(processed_img)
             if cv2.waitKey(30) & 0xFF == ord("q"):
                 break
         else:
             break
 
     cap.release()
-    out.release()
+    # out.release()
     cv2.destroyAllWindows()
 
 
