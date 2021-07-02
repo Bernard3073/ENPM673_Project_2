@@ -159,8 +159,9 @@ def poly_fit(img, left_x, left_y, right_x, right_y):
 
 
 def turn_prediction(left_lane_pts, right_lane_pts, image_center):
+    # Compare the center of the lane and the center of the image for turn prediction 
     center_lane = left_lane_pts + (right_lane_pts - left_lane_pts) / 2
-
+    # 10 is obtained by try and error
     if abs(center_lane - image_center) < 10:
         return "Straight"
 
